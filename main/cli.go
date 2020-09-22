@@ -8,7 +8,7 @@ import (
 )
 
 type CLI struct {
-	bc *Blockchain
+	bc *BlockChain
 }
 
 func (cli *CLI) validateArgs() {
@@ -79,22 +79,28 @@ func (cli *CLI) listAddress() {
 //打印提示
 func (cli *CLI) printUsage() {
 	fmt.Println("usage:")
-	fmt.Println("addblock:增加区块")
-	fmt.Println("printchain:打印区块")
-	fmt.Println("getbalance:获取余额")
+	fmt.Println("addBlock:增加区块")
+	fmt.Println("printChain:打印区块")
+	fmt.Println("getBalance:获取余额")
 	fmt.Println("createWallet:创建地址")
 	fmt.Println("listAddress:获取地址列表")
+	fmt.Println("getBlockHeight:获取区块高度")
+}
+
+//获取区块高度
+func (cli *CLI) getBlockHeight() {
+	fmt.Printf("区块高度为:%d\n", cli.bc.GetBestHeight())
 }
 
 //"入口" 是 Run 函数
 func (cli *CLI) Run() {
 	cli.validateArgs()
 	/***添加区块**/
-	addBlockCmd := flag.NewFlagSet("addblock", flag.ExitOnError)
+	addBlockCmd := flag.NewFlagSet("addBlock", flag.ExitOnError)
 	/***打印区块*/
-	printChainCmd := flag.NewFlagSet("printchain", flag.ExitOnError)
+	printChainCmd := flag.NewFlagSet("printChain", flag.ExitOnError)
 	//获取余额
-	getBalanceCmd := flag.NewFlagSet("getbalance", flag.ExitOnError)
+	getBalanceCmd := flag.NewFlagSet("getBalance", flag.ExitOnError)
 	getBalanceAddress := getBalanceCmd.String("address", "", "the address to get balance of")
 	/**转账测试*/
 	transferCmd := flag.NewFlagSet("transfer", flag.ExitOnError)
@@ -104,9 +110,14 @@ func (cli *CLI) Run() {
 	/***钱包测试**/
 	createWalletCmd := flag.NewFlagSet("createWallet", flag.ExitOnError)
 	listAddressCmd := flag.NewFlagSet("listAddress", flag.ExitOnError)
-
+	//区块高度
+	getBlockHeightCmd := flag.NewFlagSet("getBlockHeight", flag.ExitOnError)
 	switch os.Args[1] {
-
+	case "getBlockHeight":
+		err := getBlockHeightCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
 	case "createWallet":
 		err := createWalletCmd.Parse(os.Args[2:])
 		if err != nil {
@@ -123,18 +134,18 @@ func (cli *CLI) Run() {
 			log.Panic(err)
 		}
 
-	case "getbalance":
+	case "getBalance":
 		err := getBalanceCmd.Parse(os.Args[2:])
 		if err != nil {
 			log.Panic(err)
 		}
 
-	case "addblock":
+	case "addBlock":
 		err := addBlockCmd.Parse(os.Args[2:])
 		if err != nil {
 			log.Panic(err)
 		}
-	case "printchain":
+	case "printChain":
 		err := printChainCmd.Parse(os.Args[2:])
 		if err != nil {
 			log.Panic(err)
@@ -171,5 +182,7 @@ func (cli *CLI) Run() {
 	if listAddressCmd.Parsed() {
 		cli.listAddress()
 	}
-
+	if getBlockHeightCmd.Parsed() {
+		cli.getBlockHeight()
+	}
 }

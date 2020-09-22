@@ -10,19 +10,19 @@ import (
 	"log"
 )
 
-type Blockchain struct {
+type BlockChain struct {
 	tip []byte   //最近的一个区块的hash值
 	db  *bolt.DB //github.com/boltdb/bolt  数据库
 }
-type BlockChainIterateor struct {
-	currenthash []byte
+type BlockChainIterator struct {
+	currentHash []byte
 	db          *bolt.DB
 }
 
-const dbFile = "blockchain.db"
+const dbFile = "blockChain.db"
 const blockBucket = "blocks"
-const gensisData = "sheshanBlockChain" //创世区块自定义数据
-func NewBlockChain(address string) *Blockchain {
+const gensisData = "sheShanBlockChain" //创世区块自定义数据
+func NewBlockChain(address string) *BlockChain {
 	var tip []byte
 	db, err := bolt.Open(dbFile, 0600, nil)
 	if err != nil {
@@ -59,7 +59,7 @@ func NewBlockChain(address string) *Blockchain {
 	if err != nil {
 		log.Panic(err)
 	}
-	bc := Blockchain{tip, db}
+	bc := BlockChain{tip, db}
 	if isGensisBlock == true {
 		//创世区块，则初始化UTXO集合
 		set := UTXOSet{&bc}
@@ -67,7 +67,7 @@ func NewBlockChain(address string) *Blockchain {
 	}
 	return &bc
 }
-func (bc *Blockchain) MineBlock(transactions []*Transation) *Block {
+func (bc *BlockChain) MineBlock(transactions []*Transation) *Block {
 	//验证交易有效与否
 	for _, tx := range transactions {
 		if bc.VerifyTransaction(tx) != true {
@@ -77,15 +77,19 @@ func (bc *Blockchain) MineBlock(transactions []*Transation) *Block {
 		}
 	}
 	var lastHash []byte
+	var lastHeight int32
 	err := bc.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blockBucket))
 		lastHash = b.Get([]byte("l"))
+		blockData := b.Get(lastHash)
+		lastBlock := DeserializeBlock(blockData)
+		lastHeight = lastBlock.Height
 		return nil
 	})
 	if err != nil {
 		log.Panic(err)
 	}
-	newBlock := NewBlock(transactions, lastHash)
+	newBlock := NewBlock(transactions, lastHash, lastHeight+1)
 	err = bc.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blockBucket))
 		err := b.Put(newBlock.Hash, newBlock.Serialize())
@@ -109,19 +113,19 @@ func (bc *Blockchain) MineBlock(transactions []*Transation) *Block {
 	set.update(newBlock)
 	return newBlock
 }
-func (bc *Blockchain) iterator() *BlockChainIterateor {
+func (bc *BlockChain) iterator() *BlockChainIterator {
 
-	bci := &BlockChainIterateor{bc.tip, bc.db}
+	bci := &BlockChainIterator{bc.tip, bc.db}
 
 	return bci
 }
-func (i *BlockChainIterateor) Next() *Block {
+func (i *BlockChainIterator) Next() *Block {
 
 	var block *Block
 
 	err := i.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blockBucket))
-		deblock := b.Get(i.currenthash)
+		deblock := b.Get(i.currentHash)
 		block = DeserializeBlock(deblock)
 		return nil
 	})
@@ -130,11 +134,11 @@ func (i *BlockChainIterateor) Next() *Block {
 		log.Panic(err)
 	}
 
-	i.currenthash = block.PrevBlockHash
+	i.currentHash = block.PrevBlockHash
 	return block
 }
 
-func (bc *Blockchain) printBlockchain() {
+func (bc *BlockChain) printBlockchain() {
 	bci := bc.iterator()
 	//fmt.Printf("bci.currenthash:==%x\n",bci.currenthash)
 
@@ -169,7 +173,7 @@ func (bc *Blockchain) printBlockchain() {
 }
 
 //未花费交易
-func (bc *Blockchain) FindUnSpentTransations(publicKeyHash []byte) []Transation {
+func (bc *BlockChain) FindUnSpentTransations(publicKeyHash []byte) []Transation {
 	var unspentTXs []Transation        //所有未花费的交易
 	spendTXs := make(map[string][]int) // string ----->  []int 存储已经花费的交易
 	bci := bc.iterator()
@@ -177,7 +181,7 @@ func (bc *Blockchain) FindUnSpentTransations(publicKeyHash []byte) []Transation 
 	for {
 		block := bci.Next()
 		//遍历区块中的交易列表  开始
-		for _, tx := range block.Transations {
+		for _, tx := range block.Transactions {
 			txID := hex.EncodeToString(tx.ID)
 			//遍历交易中的每项输出
 		output:
@@ -215,7 +219,7 @@ func (bc *Blockchain) FindUnSpentTransations(publicKeyHash []byte) []Transation 
 	}
 	return unspentTXs
 }
-func (bc *Blockchain) FindUTXO(publickeyHash []byte) []TXOutput {
+func (bc *BlockChain) FindUTXO(publickeyHash []byte) []TXOutput {
 	var UTXOs []TXOutput
 	unspendTransaction := bc.FindUnSpentTransations(publickeyHash)
 	for _, tx := range unspendTransaction {
@@ -229,7 +233,7 @@ func (bc *Blockchain) FindUTXO(publickeyHash []byte) []TXOutput {
 	return UTXOs
 }
 
-func (bc *Blockchain) FindSpendableOutputs(publickeyHash []byte, amount int) (int, map[string][]int) {
+func (bc *BlockChain) FindSpendableOutputs(publickeyHash []byte, amount int) (int, map[string][]int) {
 	unspentOutputs := make(map[string][]int)
 	unspentTXs := bc.FindUnSpentTransations(publickeyHash)
 	accumulated := 0
@@ -255,7 +259,7 @@ Work:
 }
 
 /***用私钥对交易进行签名*/
-func (bc *Blockchain) SignTransation(tx *Transation, privateKey *ecdsa.PrivateKey) {
+func (bc *BlockChain) SignTransation(tx *Transation, privateKey *ecdsa.PrivateKey) {
 	perTXs := make(map[string]Transation)
 
 	for _, vin := range tx.Vin {
@@ -268,12 +272,12 @@ func (bc *Blockchain) SignTransation(tx *Transation, privateKey *ecdsa.PrivateKe
 	tx.Sign(*privateKey, perTXs) //对交易进行签名
 }
 
-func (bc *Blockchain) FindTransactionById(ID []byte) (Transation, error) {
+func (bc *BlockChain) FindTransactionById(ID []byte) (Transation, error) {
 
 	bci := bc.iterator()
 	for {
 		block := bci.Next()
-		for _, tx := range block.Transations {
+		for _, tx := range block.Transactions {
 			if bytes.Compare(tx.ID, ID) == 0 {
 				return *tx, nil
 			}
@@ -286,7 +290,7 @@ func (bc *Blockchain) FindTransactionById(ID []byte) (Transation, error) {
 }
 
 /***验证交易中的每笔输入的引用*/
-func (bc *Blockchain) VerifyTransaction(tx *Transation) bool {
+func (bc *BlockChain) VerifyTransaction(tx *Transation) bool {
 	prevTXs := make(map[string]Transation)
 	for _, vin := range tx.Vin {
 		prevTX, err := bc.FindTransactionById(vin.TXId)
@@ -298,14 +302,14 @@ func (bc *Blockchain) VerifyTransaction(tx *Transation) bool {
 	return tx.Verify(prevTXs)
 }
 
-func (bc *Blockchain) FindAllUTXO() map[string]TXOutputs {
+func (bc *BlockChain) FindAllUTXO() map[string]TXOutputs {
 	UTXO := make(map[string]TXOutputs)
 	spendTXs := make(map[string][]int) // string ----->  []int 存储已经花费的交易
 
 	bci := bc.iterator()
 	for {
 		block := bci.Next()
-		for _, tx := range block.Transations {
+		for _, tx := range block.Transactions {
 			txId := hex.EncodeToString(tx.ID)
 		output:
 			for outIdx, out := range tx.Vout {
@@ -332,4 +336,19 @@ func (bc *Blockchain) FindAllUTXO() map[string]TXOutputs {
 	}
 	return UTXO
 
+}
+
+func (bc *BlockChain) GetBestHeight() int32 {
+	var lastBlock Block
+	err := bc.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blockBucket))
+		lastHash := b.Get([]byte("l"))
+		blockData := b.Get(lastHash)
+		lastBlock = *DeserializeBlock(blockData)
+		return nil
+	})
+	if err != nil {
+		log.Panic(err)
+	}
+	return lastBlock.Height
 }

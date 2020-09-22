@@ -25,7 +25,7 @@ func (pow *ProofOfWork) prepareData(nonce int32) []byte {
 		[][]byte{
 			Int32ToLittleEndianHex(pow.block.Version),
 			pow.block.PrevBlockHash,
-			pow.block.Merkleroot,
+			pow.block.MerkleRoot,
 			Int32ToLittleEndianHex(pow.block.Time),
 			Int32ToLittleEndianHex(pow.block.Bits),
 			Int32ToLittleEndianHex(nonce),

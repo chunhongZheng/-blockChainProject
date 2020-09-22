@@ -7,13 +7,13 @@ import (
 )
 
 type UTXOSet struct {
-	blockchain *Blockchain
+	blockChain *BlockChain
 }
 
 const utxoBucket = "chainSet"
 
 func (u UTXOSet) Reindex() {
-	db := u.blockchain.db
+	db := u.blockChain.db
 	bucketName := []byte(utxoBucket)
 
 	err := db.Update(func(tx *bolt.Tx) error {
@@ -30,7 +30,7 @@ func (u UTXOSet) Reindex() {
 	if err != nil {
 		log.Panic(err)
 	}
-	UTXO := u.blockchain.FindAllUTXO()
+	UTXO := u.blockChain.FindAllUTXO()
 	err4 := db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketName)
 		for txID, outs := range UTXO {
@@ -53,7 +53,7 @@ func (u UTXOSet) Reindex() {
 
 func (u UTXOSet) FindUTXOByPublicKeyHash(publickeyHash []byte) []TXOutput {
 	var UTXOS []TXOutput
-	db := u.blockchain.db
+	db := u.blockChain.db
 	err := db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(utxoBucket))
 		c := b.Cursor() //游标
@@ -75,10 +75,10 @@ func (u UTXOSet) FindUTXOByPublicKeyHash(publickeyHash []byte) []TXOutput {
 	return UTXOS
 }
 func (u UTXOSet) update(block *Block) {
-	db := u.blockchain.db
+	db := u.blockChain.db
 	err := db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(utxoBucket))
-		for _, tx := range block.Transations {
+		for _, tx := range block.Transactions {
 			if tx.IsCoinBase() == false {
 				for _, vin := range tx.Vin {
 					//针对指定输入找到其对应的引用交易，并更新该引用交易的未花费输出

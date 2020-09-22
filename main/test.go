@@ -20,6 +20,7 @@ func TestNewSerialize() {
 		404454260,
 		0,
 		[]*Transation{},
+		0,
 	}
 	deBlock := DeserializeBlock(block.Serialize())
 	deBlock.String()
@@ -37,6 +38,7 @@ func TestCreateMerkleTreeRoot() {
 		404454260,
 		0,
 		[]*Transation{},
+		0,
 	}
 
 	txin := TXInput{[]byte{}, -1, nil, []byte(gensisData)}
@@ -50,7 +52,7 @@ func TestCreateMerkleTreeRoot() {
 	var Transations []*Transation
 	Transations = append(Transations, &tx, &tx2)
 	block.createMerkelTreeRoot(Transations)
-	fmt.Printf("%x\n", block.Merkleroot)
+	fmt.Printf("%x\n", block.MerkleRoot)
 }
 
 func TestPow() {
@@ -63,6 +65,7 @@ func TestPow() {
 		404454260,
 		0,
 		[]*Transation{},
+		0,
 	}
 	pow := NewProofOfWork(block)
 	nonce, _ := pow.Run()

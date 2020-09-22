@@ -109,7 +109,7 @@ func (tx Transation) IsCoinBase() bool {
 	return len(tx.Vin) == 1 && len(tx.Vin[0].TXId) == 0 && tx.Vin[0].VOutIndex == -1
 }
 
-func NewUTXOTransation(from, to string, amount int, bc *Blockchain) *Transation {
+func NewUTXOTransation(from, to string, amount int, bc *BlockChain) *Transation {
 	var inputs []TXInput
 	var outputs []TXOutput
 	wallets, err := NewWallets()

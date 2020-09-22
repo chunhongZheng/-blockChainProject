@@ -19,16 +19,17 @@ var (
 type Block struct {
 	Version       int32
 	PrevBlockHash []byte
-	Merkleroot    []byte
+	MerkleRoot    []byte
 	Hash          []byte
 	Time          int32
 	Bits          int32
 	Nonce         int32
-	Transations   []*Transation
+	Transactions  []*Transation
+	Height        int32
 }
 
 //根据前一个hash增加区块
-func NewBlock(transations []*Transation, prevBlockHash []byte) *Block {
+func NewBlock(transations []*Transation, prevBlockHash []byte, height int32) *Block {
 	block := &Block{
 		2,
 		prevBlockHash,
@@ -38,6 +39,7 @@ func NewBlock(transations []*Transation, prevBlockHash []byte) *Block {
 		404454260,
 		0,
 		transations,
+		height,
 	}
 	pow := NewProofOfWork(block)
 	nonce, hash := pow.Run()
@@ -47,7 +49,7 @@ func NewBlock(transations []*Transation, prevBlockHash []byte) *Block {
 }
 
 //创世区块
-func NewGensisBlock(transations []*Transation) *Block {
+func NewGensisBlock(transactions []*Transation) *Block {
 	block := &Block{
 		2,
 		[]byte{},
@@ -56,7 +58,8 @@ func NewGensisBlock(transations []*Transation) *Block {
 		int32(time.Now().Unix()),
 		404454260,
 		0,
-		transations,
+		transactions,
+		0,
 	}
 	pow := NewProofOfWork(block)
 	nonce, hash := pow.Run()
@@ -92,7 +95,7 @@ func DeserializeBlock(d []byte) *Block {
 func (b *Block) String() {
 	fmt.Printf("version:%s\n", strconv.FormatInt(int64(b.Version), 10))
 	fmt.Printf("Prev.BlockHash:%x\n", b.PrevBlockHash)
-	fmt.Printf("Prev.merkleroot:%x\n", b.Merkleroot)
+	fmt.Printf("Prev.merkleroot:%x\n", b.MerkleRoot)
 	fmt.Printf("Prev.Hash:%x\n", b.Hash)
 	fmt.Printf("Time:%s\n", strconv.FormatInt(int64(b.Time), 10))
 	fmt.Printf("Bits:%s\n", strconv.FormatInt(int64(b.Bits), 10))
@@ -106,5 +109,5 @@ func (b *Block) createMerkelTreeRoot(transations []*Transation) {
 		tranHash = append(tranHash, tx.Hash())
 	}
 	mTree := NewMerkleTree(tranHash)
-	b.Merkleroot = mTree.RootNode.Data
+	b.MerkleRoot = mTree.RootNode.Data
 }
