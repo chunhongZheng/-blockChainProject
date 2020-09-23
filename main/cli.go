@@ -92,9 +92,32 @@ func (cli *CLI) getBlockHeight() {
 	fmt.Printf("区块高度为:%d\n", cli.bc.GetBestHeight())
 }
 
+//启动节点服务
+func (cli *CLI) startNode(nodeID string, minerAddress string) {
+	fmt.Printf("Starting node %s\n", nodeID)
+	if len(minerAddress) > 0 {
+		if IsVaildBitcoinAddress(minerAddress) {
+			fmt.Printf("%s miner is on", minerAddress)
+			//	 StartServer(nodeID,minerAddress,cli.bc)
+		} else {
+			log.Panic("invalid miner Address")
+		}
+	} else {
+		// 	log.Panic("miner Address must not be empty")
+	}
+	StartServer(nodeID, minerAddress, cli.bc)
+}
+
 //"入口" 是 Run 函数
 func (cli *CLI) Run() {
 	cli.validateArgs()
+
+	nodeID := os.Getenv("NODE_ID")
+	if nodeID == "" {
+		fmt.Printf("NODE_ID is not set")
+		os.Exit(1)
+	}
+
 	/***添加区块**/
 	addBlockCmd := flag.NewFlagSet("addBlock", flag.ExitOnError)
 	/***打印区块*/
@@ -112,7 +135,15 @@ func (cli *CLI) Run() {
 	listAddressCmd := flag.NewFlagSet("listAddress", flag.ExitOnError)
 	//区块高度
 	getBlockHeightCmd := flag.NewFlagSet("getBlockHeight", flag.ExitOnError)
+	//启动服务
+	startNodeCmd := flag.NewFlagSet("startNode", flag.ExitOnError)
+	startNodeMinner := startNodeCmd.String("minerAddress", "", "矿工地址")
 	switch os.Args[1] {
+	case "startNode":
+		err := startNodeCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
 	case "getBlockHeight":
 		err := getBlockHeightCmd.Parse(os.Args[2:])
 		if err != nil {
@@ -184,5 +215,13 @@ func (cli *CLI) Run() {
 	}
 	if getBlockHeightCmd.Parsed() {
 		cli.getBlockHeight()
+	}
+	if startNodeCmd.Parsed() {
+		nodeID := os.Getenv("NODE_ID")
+		if nodeID == "" {
+			startNodeCmd.Usage()
+			os.Exit(1)
+		}
+		cli.startNode(nodeID, *startNodeMinner)
 	}
 }
