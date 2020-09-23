@@ -85,6 +85,7 @@ func (cli *CLI) printUsage() {
 	fmt.Println("createWallet:创建地址")
 	fmt.Println("listAddress:获取地址列表")
 	fmt.Println("getBlockHeight:获取区块高度")
+	fmt.Println("startNode:启动节点")
 }
 
 //获取区块高度
