@@ -81,7 +81,7 @@ func handleVersion(request []byte, bc *BlockChain) {
 		//当前区块高度小于外部区块，需从外部更新数据
 	} else {
 		//当前区块高度大于外部，向外部外送数据
-		fmt.Println("当前区块高度大于外部，向外部外送数据")
+		//fmt.Println("当前区块高度大于外部，向外部外送数据")
 		sendVersion(payLoad.AddrFrom, bc)
 	}
 	if !nodeIsKnow(payLoad.AddrFrom) {
