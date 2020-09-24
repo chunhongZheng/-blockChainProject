@@ -18,9 +18,29 @@ type Version struct {
 	BestHeight int32
 	AddrFrom   string
 }
+type getBlocks struct {
+	AddrFrom string
+}
+
+type inv struct {
+	AddrFrom string
+	Type     string
+	Items    [][]byte
+}
+type getData struct {
+	AddrFrom string
+	Type     string
+	ID       []byte
+}
+
+type blockSend struct {
+	AddrFrom string
+	Block    []byte
+}
 
 var knowNodes = []string{"localhost:3000"}
 var nodeAddress string
+var blockInTransit [][]byte
 
 func (v *Version) String() {
 	fmt.Printf("version:%d\n", v.Version)
@@ -62,9 +82,112 @@ func handleConnection(conn net.Conn, bc *BlockChain) {
 	case "version":
 		//	fmt.Println("收到version")
 		handleVersion(request, bc)
+	case "getBlocks":
+		handleGetBlock(request, bc)
+	case "inv":
+		handleInv(request, bc)
+	case "getData":
+		handleGetData(request, bc)
+	case "block":
+		handleBlock(request, bc)
 	}
 }
 
+func handleBlock(request []byte, bc *BlockChain) {
+	var buff bytes.Buffer
+	var payLoad blockSend
+	buff.Write(request[commonLength:])
+	dec := gob.NewDecoder(&buff)
+	err := dec.Decode(&payLoad)
+	if err != nil {
+		log.Panic(err)
+	}
+	blockData := payLoad.Block
+	block := DeserializeBlock(blockData)
+	bc.AddBlock(block)
+	fmt.Printf("Recieve a new Block")
+	if len(blockInTransit) > 0 {
+		blockHash := blockInTransit[0]
+		sendGetData(payLoad.AddrFrom, "block", blockHash)
+		blockInTransit = blockInTransit[1:]
+	} else {
+		//更新utxo
+		set := UTXOSet{bc}
+		set.Reindex()
+	}
+}
+
+func handleGetData(request []byte, bc *BlockChain) {
+	var buff bytes.Buffer
+	var payLoad getData
+	buff.Write(request[commonLength:])
+	dec := gob.NewDecoder(&buff)
+	err := dec.Decode(&payLoad)
+	if err != nil {
+		log.Panic(err)
+	}
+	if payLoad.Type == "block" {
+		block, err := bc.GetBlock([]byte(payLoad.ID))
+		if err != nil {
+			log.Panic(err)
+		}
+		sendBlock(payLoad.AddrFrom, &block)
+	}
+}
+
+func sendBlock(addr string, block *Block) {
+	data := blockSend{nodeAddress, block.Serialize()}
+	payLoad := gobEncode(data)
+	request := append(commandToBytes("block"), payLoad...)
+	sendData(addr, request)
+}
+
+func handleInv(request []byte, bc *BlockChain) {
+	var buff bytes.Buffer
+	var payLoad inv
+	buff.Write(request[commonLength:])
+	dec := gob.NewDecoder(&buff)
+	err := dec.Decode(&payLoad)
+	if err != nil {
+		log.Panic(err)
+	}
+	fmt.Printf("Receieve inventory %d,%s\n", len(payLoad.Items), payLoad.Type)
+
+	if payLoad.Type == "block" {
+		blockInTransit := payLoad.Items //所有区块hash集合
+		blockHash := payLoad.Items[0]   //最近一个区块hash
+		sendGetData(payLoad.AddrFrom, "block", blockHash)
+		newTransit := [][]byte{} //剔除最近区块hash后的新的所有区块hash集合
+
+		for _, b := range blockInTransit {
+			if bytes.Compare(b, blockHash) != 0 {
+				newTransit = append(newTransit, b)
+			}
+		}
+		blockInTransit = newTransit
+	}
+
+}
+
+func sendGetData(addr string, kind string, id []byte) {
+	payLoad := gobEncode(getData{nodeAddress, kind, id})
+	request := append(commandToBytes("getData"), payLoad...)
+	sendData(addr, request)
+}
+
+/**处理请求区块数据*/
+func handleGetBlock(request []byte, bc *BlockChain) {
+	var buff bytes.Buffer
+	var payLoad getBlocks
+	buff.Write(request[commonLength:])
+	dec := gob.NewDecoder(&buff)
+	err := dec.Decode(&payLoad)
+	if err != nil {
+		log.Panic(err)
+	}
+	block := bc.GetLockHash()
+	sendInv(payLoad.AddrFrom, "block", block)
+}
 func handleVersion(request []byte, bc *BlockChain) {
 	var buff bytes.Buffer
 	var payLoad Version
@@ -95,6 +218,18 @@ func nodeIsKnow(addr string) bool {
 		}
 	}
 	return false
+}
+func sendInv(addr string, kind string, item [][]byte) {
+	inventory := inv{addr, kind, item}
+	payLoad := gobEncode(inventory)
+	request := append(commandToBytes("inv"), payLoad...)
+	sendData(addr, request)
+}
+func sendGetBlock(address string) {
+	//payLoad:=gobEncode(getBlocks{nodeAddress})
+	payLoad := gobEncode(getBlocks{address})
+	request := append(commandToBytes("getBlocks"), payLoad...)
+	sendData(address, request)
 }
 
 func sendVersion(addr string, bc *BlockChain) {
