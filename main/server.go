@@ -38,7 +38,7 @@ type blockSend struct {
 	Block    []byte
 }
 
-var knowNodes = []string{"localhost:3000"}
+var knowNodes = []string{"localhost:3000"} //主节点
 var nodeAddress string
 var blockInTransit [][]byte
 
@@ -151,7 +151,8 @@ func handleInv(request []byte, bc *BlockChain) {
 	if err != nil {
 		log.Panic(err)
 	}
-	fmt.Printf("Receieve inventory %d,%s\n", len(payLoad.Items), payLoad.Type)
+
+	fmt.Printf("Receieve inventory %d,%s,%s\n", len(payLoad.Items), payLoad.Type, payLoad.AddrFrom)
 
 	if payLoad.Type == "block" {
 		blockInTransit := payLoad.Items //所有区块hash集合
@@ -202,9 +203,11 @@ func handleVersion(request []byte, bc *BlockChain) {
 	foreignerBestHeight := payLoad.BestHeight
 	if myBestHeight < foreignerBestHeight {
 		//当前区块高度小于外部区块，需从外部更新数据
+		fmt.Println("当前区块高度小于外部区块，需从外部更新数据")
+		sendGetBlock(payLoad.AddrFrom)
 	} else {
-		//当前区块高度大于外部，向外部外送数据
-		//fmt.Println("当前区块高度大于外部，向外部外送数据")
+		//当前区块高度大于外部，向外部广播，通知其他子节点更新数据
+		fmt.Println("当前区块高度大于外部，向外部外送数据")
 		sendVersion(payLoad.AddrFrom, bc)
 	}
 	if !nodeIsKnow(payLoad.AddrFrom) {
@@ -220,14 +223,14 @@ func nodeIsKnow(addr string) bool {
 	return false
 }
 func sendInv(addr string, kind string, item [][]byte) {
-	inventory := inv{addr, kind, item}
+	inventory := inv{nodeAddress, kind, item}
 	payLoad := gobEncode(inventory)
 	request := append(commandToBytes("inv"), payLoad...)
 	sendData(addr, request)
 }
 func sendGetBlock(address string) {
 	//payLoad:=gobEncode(getBlocks{nodeAddress})
-	payLoad := gobEncode(getBlocks{address})
+	payLoad := gobEncode(getBlocks{nodeAddress}) //向主节点获取block信息
 	request := append(commandToBytes("getBlocks"), payLoad...)
 	sendData(address, request)
 }
