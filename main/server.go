@@ -60,12 +60,12 @@ func StartServer(nodeID, mineAddress string, bc *BlockChain) {
 		sendVersion(knowNodes[0], bc)
 	}
 	for {
-		fmt.Println("a1")
+		//	fmt.Println("a1")
 		conn, err2 := ln.Accept()
 		if err2 != nil {
 			log.Panic(err2)
 		}
-		fmt.Println("a2")
+		//	fmt.Println("a2")
 		go handleConnection(conn, bc)
 	}
 }
